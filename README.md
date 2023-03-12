@@ -37,7 +37,7 @@ Just a simple project containing a variety of components. I will eventually add 
 
 ### Built With
 
-* [![UnrealEngine][UnrealEngine]][UnrealEngine-url]
+[![UnrealEngine][UnrealEngine]][UnrealEngine-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -87,6 +87,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 ## Contact
 
 Brian Crowder - [![LinkedIn][linkedin-shield]][linkedin-url]
+<br />
 Project Link: [https://github.com/bkcrowder/Unreal-Engine-Components](https://github.com/bkcrowder/Unreal-Engine-Components)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
