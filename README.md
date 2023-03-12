@@ -97,5 +97,6 @@ Project Link: [https://github.com/bkcrowder/Unreal-Engine-Components](https://gi
 [license-shield]: https://img.shields.io/github/license/bkcrowder/Unreal-Engine-Components.svg?style=for-the-badge
 [license-url]: https://github.com/bkcrowder/Unreal-Engine-Components/blob/master/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
+[linkedin-url]: https://www.linkedin.com/in/bkcrowder/
 [UnrealEngine]: https://img.shields.io/static/v1?style=for-the-badge&message=Unreal+Engine&color=0E1128&logo=Unreal+Engine&logoColor=FFFFFF
 [UnrealEngine-url]: https://www.unrealengine.com/
