@@ -86,7 +86,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Brian Crowder - [![LinkedIn][linkedin-shield]][linkedin-url]
+[![LinkedIn][linkedin-shield]][linkedin-url]
 <br />
 Project Link: [https://github.com/bkcrowder/Unreal-Engine-Components](https://github.com/bkcrowder/Unreal-Engine-Components)
 
