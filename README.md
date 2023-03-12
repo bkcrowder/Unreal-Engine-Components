@@ -31,13 +31,13 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-Just a simple project containing a variety of components.
+Just a simple project containing a variety of components. I will eventually add in READMEs to the components themselves to better outline their functionality, purpose, and any dependencies that might exist between components.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Built With
 
-* [![Unreal Engine][UnrealEngine]][UnrealEngine-url]
+* [![UnrealEngine][UnrealEngine]][UnrealEngine-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
