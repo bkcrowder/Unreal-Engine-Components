@@ -25,10 +25,38 @@ void AGun::BeginPlay()
 void AGun::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
 void AGun::PullTrigger()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Fire ze missles!"));
+	if (AttachedMuzzleFlash)
+	{
+		if (AttachedMuzzleFlash->IsActive())
+		{
+			return;
+		}
+
+		AttachedMuzzleFlash->Activate();
+	}
+	else
+	{
+		if (MuzzleFlash)
+		{
+			AttachedMuzzleFlash = UGameplayStatics::SpawnEmitterAttached(MuzzleFlash, Mesh, MuzzleFlashSocket);
+			AttachedMuzzleFlash->bAutoDestroy = false;
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("No muzzle flash set! Unable to generate particle component!"));
+		}
+	}
 }
+
+void AGun::ReleaseTrigger()
+{
+	if (AttachedMuzzleFlash)
+	{
+		AttachedMuzzleFlash->Deactivate();
+	}
+}
+ 
