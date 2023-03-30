@@ -39,7 +39,7 @@ void UTriggerComponentBase::Trigger_Implementation() const
         {
             Triggerable->Trigger();
         }
-        else if (Triggerable->IsReversible())
+        else
         {
             Triggerable->Reverse();
         }

@@ -16,14 +16,27 @@ class MPSTARTER_API IITriggerable
 	GENERATED_BODY()
 
 public:
-	
-	/// @brief Trigger the event
+
+	/// @brief Activate the triggerable, allowing it to move/rotate
+	UFUNCTION(BlueprintNativeEvent, Category = "Triggerable")
+	void Activate();
+
+	/// @brief Deactivate the triggerable, stopping it in place
+	UFUNCTION(BlueprintNativeEvent, Category = "Triggerable")
+	void Deactivate();
+
+	/// @brief Triggers the "forward moving / rotating" event
 	UFUNCTION(BlueprintNativeEvent, Category = "Triggerable")
 	void Trigger();
 
-	/// @brief Reverses the trigger event
+	/// @brief Reverses the direction/rotation of the event
 	UFUNCTION(BlueprintNativeEvent, Category = "Triggerable")
 	void Reverse();
+
+	/// @brief Determines whether or not the triggerable is allowed to move/rotate
+	/// @return True if the triggerable is allowed to move/rotate; false if not
+	UFUNCTION(BlueprintNativeEvent, Category = "Triggerable")
+	bool IsActive() const;
 
 	/// @brief Triggerable is in a triggered state
 	/// @return Whether or not the triggerable is in a triggered state
@@ -33,7 +46,7 @@ public:
 	/// @brief Check if the triggerable can be reversed
 	/// @return Whether or not the triggerable can be reversed
 	UFUNCTION(BlueprintNativeEvent, Category = "Triggerable")
-	bool IsReversible() const;
+	bool IsReversing() const;
 
 	/// @brief Triggerable is completed with its triggering process (manipulation)
 	/// @return Whether or not the triggerable is considered "finished" with its process
