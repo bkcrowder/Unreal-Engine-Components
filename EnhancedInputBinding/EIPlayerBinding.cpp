@@ -1,5 +1,7 @@
 #include "EIPlayerBinding.h"
+#include "Gun.h"
 
+// Constructor
 AEIPlayerBinding::AEIPlayerBinding()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -9,6 +11,18 @@ AEIPlayerBinding::AEIPlayerBinding()
 void AEIPlayerBinding::BeginPlay()
 {
 	Super::BeginPlay();
+
+	Gun = GetWorld()->SpawnActor<AGun>(GunClass);
+
+	// Only clear the original weapon if we have a bone name to clear
+	if (!WeaponBoneName.IsNone())
+	{
+		GetMesh()->HideBoneByName(WeaponBoneName, EPhysBodyOp::PBO_None);	
+	}
+
+	// Attach the component to the mesh and assign the gun owner
+	Gun->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, WeaponSocketName);
+	Gun->SetOwner(GetOwner());
 }
 
 // Called every frame
@@ -49,6 +63,9 @@ void AEIPlayerBinding::BindActions(UEnhancedInputComponent* PlayerEIComponent)
 	PlayerEIComponent->BindAction(InputCrouch, ETriggerEvent::Triggered, this, &AEIPlayerBinding::CrouchStart);
 	PlayerEIComponent->BindAction(InputCrouch, ETriggerEvent::Completed, this, &AEIPlayerBinding::CrouchStop);
 	PlayerEIComponent->BindAction(InputCrouch, ETriggerEvent::Canceled, this, &AEIPlayerBinding::CrouchStop);
+
+	// Weapons
+	PlayerEIComponent->BindAction(PrimaryFire, ETriggerEvent::Triggered, this, &AEIPlayerBinding::PrimaryFire);
 }
 
 void AEIPlayerBinding::Look(const FInputActionInstance& Instance)
@@ -80,9 +97,16 @@ void AEIPlayerBinding::CrouchStart(const FInputActionInstance& Instance)
 
 }
 
-void AEIPlayerBinding::CrouchStop(const FInputActionInstance& Instance)
+void EIPlayerBinding::CrouchStop(const FInputActionInstance& Instance)
 {
 
 }
 
+void EIPlayerBinding::PrimaryFire(const FInputActionInstance& Instance)
+{
+	if (Gun)
+	{
+		Gun->PullTrigger();
+	}
+}
 

@@ -6,8 +6,10 @@
 #include "EnhancedInputComponent.h"
 #include "EIPlayerBinding.generated.h"
 
+class AGun;
+
 UCLASS()
-class SIMPLESHOOTER_API AShooter : public ACharacter
+class SIMPLESHOOTER_API AEIPlayerBinding : public ACharacter
 {
 	GENERATED_BODY()
 
@@ -17,26 +19,45 @@ public:
 	UInputMappingContext* GroundMovementInputContext;
 
 	/// @brief Context priority over other action contexts
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input|Movement")
 	int32 GroundMovementContextPriority = 0;
 
 	/// @brief Input action for moving
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input|Movement")
 	UInputAction* InputMove;
 	
 	/// @brief Input action for looking
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input|Movement")
 	UInputAction* InputLook;
 
 	/// @brief Input action for jumping
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input|Movement")
 	UInputAction* InputJump;
 
 	/// @brief Input action for crouching
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input|Movement")
 	UInputAction* InputCrouch;
 
-	// ctor
+	/// @brief Input action for Primary Fire
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input|Weapons")
+	UInputAction* PrimaryFire;
+
+	/// @brief Gun or Weapon to set as actively equipped
+	UPROPERTY(EditDefaultsOnly, Category="Weapon")
+	TSubclassOf<AGun> GunClass;
+
+	/// @brief Bone name to clear original weapon. Leave empty if no default weapon bone is present in skeleton.
+	UPROPERTY(EditDefaultsOnly, Category="Weapon Bone")
+	FName WeaponBoneName = NAME_None;
+
+	/// @brief Socket to attach the new weapon to
+	UPROPERTY(EditDefaultsOnly, Category="Weapon Bone")
+	FName WeaponSocketName = "WeaponSocket";
+
+	/// @brief Stored pointer to reference the weapon
+	AGun* Gun;
+
+	// Sets default values for this character's properties
 	AEIPlayerBinding();
 
 	// Called every frame
@@ -77,4 +98,8 @@ private:
 	/// @brief End the crouch
 	/// @param Instance Action instance containing values
 	void CrouchStop(const FInputActionInstance& Instance);
+
+	/// @brief Trigger primary fire
+	/// @param Instance Action instance containing values
+	void PrimaryFire(const FInputActionInstance &Instance);
 };
