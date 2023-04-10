@@ -104,6 +104,9 @@ private:
 	/// @brief Current index of the stage of movement/rotation
 	int32 StageIndex = 0;
 
+	/// @brief Rotation tolerance to evaluate when a rotation is completed
+	double RotationTolerance = 0.000001;
+
 	/// @brief Sequence of movements and rotations via FVector and FRotator
 	TArray<FSequenceStage> Sequence;
 
@@ -127,7 +130,7 @@ private:
 	FRotator CurrentRotationTarget;
 
 	/// @brief Current amount of rotation applied in the current stage
-	FRotator RotationRemaining = FRotator(0,0,0);
+	FVector RotationRemaining = FVector(0,0,0);
 
 	/// @brief Target Location for the current stage
 	FVector PreviousLocationTarget;
@@ -166,8 +169,8 @@ private:
 	/// @brief Tracks the force supplied to the rotation, measured in 180 degree intervals
 	/// @param force Yaw, Pitch, or Roll of the force to track
 	/// @return The remaining force target for the supplied yaw, pitch, or roll
-	float TrackRotationForce(const double TrackedForce);
+	float TrackRotationForce(const double TrackedForce, const int32 StepInterval);
 
-	/// @brief Tracks the current rotation by intervals of 180 degrees and updates the rotation target
-	FRotator TrackRotationStep(const FRotator CurrentRotation);
+	/// @brief Tracks the current rotation by intervals of 180 degrees and updates the rotation target using FVector as a value container
+	FRotator TrackRotationStep(const FVector CurrentRotation, const int32 StepInterval);
 };
