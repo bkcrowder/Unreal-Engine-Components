@@ -1,5 +1,15 @@
 #include "TriggerableMover.h"
 
+/*
+	TODO:
+	- Fix rotation velocity as it's still a bit fast and inverted from location velocity (loc = higher -> slow; rot = higher -> faster)
+	- Delegates where TODOs are flagged
+	- Permit a rotation to loop forever
+		- Need to flag the Quat rotation on the stage
+		- Disallow any other rotations to occur when FQuat is flagged
+		- Continue rotating on those axes indefinitely
+*/
+
 // Sets default values for this component's properties
 UTriggerableMover::UTriggerableMover()
 {
@@ -12,13 +22,13 @@ void UTriggerableMover::BeginPlay()
 	Super::BeginPlay();
 
 	OriginLocation = CurrentLocationTarget = PreviousLocationTarget = GetOwner()->GetActorLocation();
-	OriginRotation = CurrentRotationTarget = PreviousRotationTarget = GetOwner()->GetActorRotation();
+	OriginRotation = GetOwner()->GetActorQuat();
 
-	// Set up a basic origin stage
-	FLocationStage OriginStageLocation = FLocationStage(FVector(0, 0, 0), OriginLocationReturnVelocity);
-	FRotationStage OriginStageRotation = FRotationStage(FVector(0, 0, 0), OriginRotationReturnVelocity);
-	
-	OriginSequenceStage = FSequenceStage(OriginStageLocation, OriginStageRotation);
+	CurrentRotationTarget = PreviousRotationTarget = OriginRotation;
+
+	OriginSequenceStage = FSequenceStage(
+		FStageLocation(FVector::Zero(), OriginLocationReturnVelocity), 
+		FStageRotation(FVector::Zero(), OriginRotationReturnVelocity));
 	AddStageToSequence(OriginSequenceStage);
 }
 
@@ -88,7 +98,7 @@ void UTriggerableMover::MoveAndRotate(const float DeltaTime, bool bReverse)
 	Rotate(DeltaTime, CurrentRotation, CurrentStage.Rotation, bReverse);
 }
 
-void UTriggerableMover::Move(const float DeltaTime, const FVector CurrentLocation, const FLocationStage& StageLocation, bool bReverse)
+void UTriggerableMover::Move(const float DeltaTime, const FVector &CurrentLocation, const FStageLocation& StageLocation, bool bReverse)
 {
 
 	// Early return if location is done OR we're in reverse and location is not allowed to reverse
@@ -105,63 +115,58 @@ void UTriggerableMover::Move(const float DeltaTime, const FVector CurrentLocatio
 	GetOwner()->SetActorLocation(InterpLocation);
 }
 
-void UTriggerableMover::Rotate(const float DeltaTime, const FRotator CurrentRotation, const FRotationStage& StageRotation, bool bReverse)
+void UTriggerableMover::Rotate(const float DeltaTime, const FRotator &CurrentRotation, const FStageRotation& StageRotation, bool bReverse)
 {
 	bool bReversePermitted = bForceReverseSequence || StageRotation.bIsReversible;
 
-	// Early return if step rotation is done and rotation remaining is empty OR we're in reverse and rotation is not allowed to reverse
-	if (RotationRemaining.IsNearlyZero() || (bReverse && !bReversePermitted))
+	if (RotationRemaining.IsZero() || (bReverse && !bReversePermitted))
 	{
 		return;
 	}
 
-	// Retrieve the correction direction based on if the sequence is reversing and the stage rotation is allowed to reverse; multiply by deltatime
-	FVector DirectionVelocity = bReverse && StageRotation.bIsReversible ? StageRotation.ReverseVelocity : StageRotation.ForwardVelocity;
-	float Speed = StageRotation.Offset.Size() / DirectionVelocity.Size();
-	FRotator InterpRotation = FMath::RInterpConstantTo(CurrentRotation, CurrentRotationTarget, DeltaTime, Speed);
+	// Retrieve the correction direction based on if the sequence is reversing and the stage rotation is allowed to reverse
+	float DirectionSpeed = bReverse && StageRotation.bIsReversible ? StageRotation.ReverseVelocity : StageRotation.ForwardVelocity;
+	float Speed = StageRotation.Offset.Size() / (DirectionSpeed / DeltaTime);
 
-	//UE_LOG(LogTemp, Warning, TEXT("Rotation Remaining: %s"), *RotationRemaining.ToCompactString());
-	// Break apart the Pitch, Yaw, and Roll
-	FRotator DeltaRotation = FRotator(
-		CurrentRotation.Pitch >= 180 ? InterpRotation.Pitch + CurrentRotation.Pitch : InterpRotation.Pitch - CurrentRotation.Pitch,
-		CurrentRotation.Yaw >= 180 ? InterpRotation.Yaw + CurrentRotation.Yaw : InterpRotation.Yaw - CurrentRotation.Yaw,
-		CurrentRotation.Roll >= 180 ? InterpRotation.Roll + CurrentRotation.Roll : InterpRotation.Roll - CurrentRotation.Roll);
+	FQuat CurrentQuat = CurrentRotation.Quaternion();	
+	FQuat InterpQuat = FMath::QInterpConstantTo(CurrentQuat, CurrentRotationTarget, DeltaTime, Speed);
+	
+	// Apply InterpQuat (Current + interval to target) first, and then the inverse of current to get delta
+	FQuat DeltaQuat = InterpQuat * CurrentQuat.Inverse();
+
+	// Soley compare to zero as values can be positive or negative depending on user input
+	FVector Delta = DeltaQuat.Euler();
+	RotationRemaining.X = RotationRemaining.X == 0.0 ? 0.0 : RotationRemaining.X - Delta.X;
+	RotationRemaining.Y = RotationRemaining.Y == 0.0 ? 0.0 : RotationRemaining.Y - Delta.Y;
+	RotationRemaining.Z = RotationRemaining.Z == 0.0 ? 0.0 : RotationRemaining.Z - Delta.Z;
 
 	// Next step will land in the negative, so zero out and use the difference as the remaining interpolated rotation
-	RotationRemaining -= DeltaRotation.Euler().GetAbs();
-	if (RotationRemaining.X < -RotationTolerance && RotationRemaining.Y < -RotationTolerance && RotationRemaining.Z < -RotationTolerance)
+	if (RotationRemaining.IsNearlyZero())
 	{
 		RotationRemaining = FVector::Zero();
-		InterpRotation = CurrentRotation - CurrentRotation;
+		GetOwner()->SetActorRotation(CurrentRotationTarget, ETeleportType::TeleportPhysics);
 	}
 
 	// TODO: World Rotation appears to flip once it reaches 360 degrees
-	GetOwner()->SetActorRelativeRotation(InterpRotation);
+	// GetOwner()->SetActorRotation(InterpQuat)
+	GetOwner()->AddActorWorldRotation(DeltaQuat, false, nullptr, ETeleportType::TeleportPhysics);
 }
 
-void UTriggerableMover::UpdateStages(const FVector CurrentLocation, const FRotator CurrentRotation, bool bReverse)
+void UTriggerableMover::UpdateStages(const FVector &CurrentLocation, const FRotator &CurrentRotation, bool bReverse)
 {
-	// We've reached our destination, so increment/decrement
-	if ((CurrentLocationTarget - CurrentLocation).IsNearlyZero() && (CurrentRotationTarget - CurrentRotation).IsNearlyZero())
+	int32 Direction = bReverse ? -1 : 1;
+
+	// Check the rotation overflow still needed and return without changing stages
+	if (CurrentRotationTarget.Equals(CurrentRotation.Quaternion()) && !RotationRemaining.IsZero())
 	{
-		int32 Direction = bReverse ? -1 : 1;
+		// Add the next step in the rotation, broken up into 180 degree capped chunks only if necessary
+		FQuat Step = TrackRotationStep(RotationRemaining, RotationStep, RotationTolerance) * Direction;
+		CurrentRotationTarget = CurrentRotation.Quaternion() * Step * Direction;
+	}
 
-		// Check the rotation overflow still needed and return without changing stages
-		if (!RotationRemaining.IsNearlyZero())
-		{
-			UE_LOG(LogTemp, Warning, TEXT("--- Non-Zero Remaining ---"));
-			UE_LOG(LogTemp, Warning, TEXT("Rotation Remaining: %s"), *RotationRemaining.ToCompactString());
-			
-			// Add the next step in the rotation, broken up into 180 degree capped chunks only if necessary
-			FRotator Tracked = TrackRotationStep(RotationRemaining, RotationStep) * Direction;
-
-			CurrentRotationTarget += Tracked * Direction;
-			UE_LOG(LogTemp, Warning, TEXT("Tracked Modifier Rotation: %s"), *Tracked.ToCompactString());
-			UE_LOG(LogTemp, Warning, TEXT("Target step updated rotation: %s"), *CurrentRotationTarget.ToCompactString());
-			
-			return;
-		}
-
+	// We've reached our destination and no rotation remaining, so increment/decrement stage
+	if ((CurrentLocationTarget - CurrentLocation).IsNearlyZero() && RotationRemaining.IsZero())
+	{
 		// Update index and ensure we don't move outside of the Array boundaries
 		StageIndex += Direction;
 		StageIndex = FMath::Clamp(StageIndex, 0, Sequence.Num() - 1);
@@ -180,7 +185,7 @@ void UTriggerableMover::UpdateStages(const FVector CurrentLocation, const FRotat
 	}
 }
 
-void UTriggerableMover::SetStageTargets(const FVector CurrentLocation, const FRotator CurrentRotation, const int32 Direction)
+void UTriggerableMover::SetStageTargets(const FVector &CurrentLocation, const FRotator &CurrentRotation, const int32 Direction)
 {
 	if (Direction != 1 && Direction != -1)
 	{
@@ -190,10 +195,12 @@ void UTriggerableMover::SetStageTargets(const FVector CurrentLocation, const FRo
 	PreviousLocationTarget = CurrentLocationTarget;
 	PreviousRotationTarget = CurrentRotationTarget;
 
-	// Since FRotationStage a struct, we cannot use the Blueprint Setter in order to assign these as blueprint values change
-	
-	FRotationStage SequenceRotation = Sequence[StageIndex].Rotation;
-	RotationRemaining = SequenceRotation.Offset;
+	RotationRemaining = Sequence[StageIndex].Rotation.ToVector();
+
+	// Need to modify -- Axes values should never be higher than the
+	RotationRemaining.X = RotationRemaining.X == 0.0 ? 0.0 : RotationRemaining.X;
+	RotationRemaining.Y = RotationRemaining.Y == 0.0 ? 0.0 : RotationRemaining.Y;
+	RotationRemaining.Z = RotationRemaining.Z == 0.0 ? 0.0 : RotationRemaining.Z;
 
 	// Set the targets
 	if (StageIndex == 0)
@@ -201,44 +208,57 @@ void UTriggerableMover::SetStageTargets(const FVector CurrentLocation, const FRo
 		// Origin return
 		CurrentLocationTarget = OriginLocation;
 		CurrentRotationTarget = OriginRotation;
+		UE_LOG(LogTemp, Warning, TEXT("-- Starting Origin Target: %s"), *CurrentRotationTarget.Rotator().ToCompactString());
 	}
 	else
 	{
 		CurrentLocationTarget = CurrentLocation + (Sequence[StageIndex].Location.Offset * Direction);
-		CurrentRotationTarget = CurrentRotation + TrackRotationStep(RotationRemaining, RotationStep) * Direction;
+
+		FQuat Step = TrackRotationStep(RotationRemaining, RotationStep, RotationTolerance);
+		CurrentRotationTarget *= Step * Direction;
+		
+		//CurrentRotationTarget = UKismetMathLibrary::Quat_MakeFromEuler(RotationRemaining) * Direction;
 	}
 
 	// TODO: Event Dispatcher on StageUpdated
 }
 
-FRotator UTriggerableMover::TrackRotationStep(const FVector RemainingRotation, const int32 StepInterval)
+void UTriggerableMover::AdjustRemainingRotation(const FVector &ReductionAmount)
 {
-	double Pitch = TrackRotationForce(RemainingRotation.Y, StepInterval);
-	double Yaw = TrackRotationForce(RemainingRotation.Z, StepInterval);
-	double Roll = TrackRotationForce(RemainingRotation.X, StepInterval);
-
-	UE_LOG(LogTemp, Warning, TEXT("Roll parsed from %f with result of %f"), RemainingRotation.X, Roll);
-
-	return FRotator(Pitch, Yaw, Roll);
+	RotationRemaining.X = FMath::Max(RotationRemaining.X - ReductionAmount.X, 0.0);
+	RotationRemaining.Y = FMath::Max(RotationRemaining.Y - ReductionAmount.Y, 0.0);
+	RotationRemaining.Z = FMath::Max(RotationRemaining.Z - ReductionAmount.Z, 0.0);
 }
 
-float UTriggerableMover::TrackRotationForce(const double TrackedForce, const int32 StepInterval)
+FQuat UTriggerableMover::TrackRotationStep(const FVector &RemainingRotation, const int32 StepInterval, const double Tolerance)
+{
+	double Pitch = TrackRotationForce(RemainingRotation.Y, StepInterval, Tolerance);
+	double Yaw = TrackRotationForce(RemainingRotation.Z, StepInterval, Tolerance);
+	double Roll = TrackRotationForce(RemainingRotation.X, StepInterval, Tolerance);
+
+	UE_LOG(LogTemp, Warning, TEXT("Pitch, Yaw, and Roll for stage %i: %f, %f, %f"), StageIndex, Pitch, Yaw, Roll);
+
+	return FRotator(Pitch, Yaw, Roll).Quaternion();
+}
+
+float UTriggerableMover::TrackRotationForce(const double TrackedForce, const int32 StepInterval, const double Tolerance)
 {
 	// Between zero and rotation tolerance range
-    if (FMath::Abs(TrackedForce) <= RotationTolerance)
+    if (FMath::Abs(TrackedForce) <= Tolerance)
 	{
-		return RotationTolerance;
+		return Tolerance;
 	}
 
 	// Tracked value is same as step interval, so this is last step
-	if (FMath::Abs(TrackedForce - StepInterval) <= RotationTolerance)
+	if (FMath::Abs(TrackedForce - StepInterval) <= Tolerance)
 	{
 		return TrackedForce;
 	}
 
-	// Check if remainder of mod is non-zero. If zero, we know interval is factor of step, so subtract
+	// Check if remainder of mod is non-zero from 180 degree step. If zero, we know interval is factor of step, so subtract
 	double Modulus = std::fmod(TrackedForce, StepInterval);
 	double Interval = FMath::Min(TrackedForce - StepInterval, StepInterval);
+	
 	return Modulus == 0.0 ? Interval : Modulus;
 }
 
@@ -253,15 +273,19 @@ void UTriggerableMover::Trigger_Implementation()
 	// We are coming from a reverse state, so target index should be the next one
 	if (bIsReversing)
 	{
-		CurrentLocationTarget = PreviousLocationTarget;
-		CurrentRotationTarget = PreviousRotationTarget;
+		StageIndex = FMath::Clamp(StageIndex++, 0, Sequence.Num() - 1);
+
+		// Movment should be
+		CurrentLocationTarget = Sequence[StageIndex].Location.Offset;
+
+		// Calculate the traveled rotation and set the target to the inverse of that travel
+		RotationRemaining = Sequence[StageIndex].Rotation.ToVector() - RotationRemaining;
+		CurrentRotationTarget = UKismetMathLibrary::Quat_MakeFromEuler(-RotationRemaining);
 	}
 
 	bHasTriggered = true;
 	bIsReversing = false;
 	bHasCompleted = false;
-
-	
 
 	// TODO: Event Dispatcher for OnTriggered
 }
@@ -277,18 +301,19 @@ void UTriggerableMover::Reverse_Implementation()
 
 	if (bHasTriggered)
 	{
-		CurrentLocationTarget = PreviousLocationTarget;
-		CurrentRotationTarget = PreviousRotationTarget;
+		StageIndex = FMath::Clamp(StageIndex--, 0, Sequence.Num() - 1);
+		CurrentLocationTarget = Sequence[StageIndex].Location.Offset;
+
+		// Calculate the traveled rotation and set the target to the inverse of that travel
+		RotationRemaining = Sequence[StageIndex].Rotation.ToVector() - RotationRemaining;
+		CurrentRotationTarget = UKismetMathLibrary::Quat_MakeFromEuler(-RotationRemaining);
 	}
+
+	RotationRemaining = Sequence[StageIndex].Rotation.ToVector() - RotationRemaining;
 
 	bHasTriggered = false;
 	bIsReversing = true;
 	bHasCompleted = false;
-	
-	if (StageIndex == 0)
-	{
-		return;
-	}
 
 	// TODO: Event Dispatcher for OnReversed
 }

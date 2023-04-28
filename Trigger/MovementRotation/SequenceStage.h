@@ -1,7 +1,7 @@
 #pragma once
 
-#include "LocationStage.h"
-#include "RotationStage.h"
+#include "StageLocation.h"
+#include "StageRotation.h"
 #include "SequenceStage.generated.h"
 
 class UObject;
@@ -13,7 +13,7 @@ struct FSequenceStage
 
 	FSequenceStage(){};
 
-	FSequenceStage(FLocationStage StageLocation, FRotationStage StageRotation, bool bStageIsReversible = false)
+	FSequenceStage(FStageLocation StageLocation, FStageRotation StageRotation, bool bStageIsReversible = false)
 	{
 		Location = StageLocation;
 		Rotation = StageRotation;
@@ -26,11 +26,11 @@ struct FSequenceStage
 
 	/// @brief Where to move the vector in relation to its last location
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Triggerable | Movement")
-	FLocationStage Location;
+	FStageLocation Location;
 
 	/// @brief Where to move the vector in relation to its last location
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Triggerable | Movement")
-	FRotationStage Rotation;
+	FStageRotation Rotation;
 
 	UPROPERTY()
 	UObject *SafeObjectPointer;

@@ -84,14 +84,19 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Triggerable", meta=(AllowPrivateAccess = "true"))
 	bool bLoopForever = false;
 
+#pragma region Origin
 	/// @brief Origin Location Return (Reverse) Speed
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Triggerable | Origin Sequence Stage", meta=(AllowPrivateAccess = "true"))
 	float OriginLocationReturnVelocity = 1.0;
 
 	/// @brief Origin Rotation Return (Reverse) Speed
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Triggerable | Origin Sequence Stage", meta=(AllowPrivateAccess = "true"))
-	FVector OriginRotationReturnVelocity = FVector(1, 1, 1);
+	float OriginRotationReturnVelocity = 1.0;
 
+	/// @brief Origin sequence stage. Gets created on begin play.
+	FSequenceStage OriginSequenceStage;
+#pragma endregion
+	
 	/// @brief Whether or not this triggerable has been triggered
 	bool bHasTriggered = false;
 
@@ -104,39 +109,37 @@ private:
 	/// @brief Current index of the stage of movement/rotation
 	int32 StageIndex = 0;
 
+#pragma region Rotation
 	/// @brief Rotation tolerance to evaluate when a rotation is completed
 	double RotationTolerance = 0.000001;
 
+	/// @brief How much to step rotation evaluations in order to keep rotating to 360 degrees and beyond
+	const double RotationStep = 179.9;
+#pragma endregion
 	/// @brief Sequence of movements and rotations via FVector and FRotator
 	TArray<FSequenceStage> Sequence;
-
-	/// @brief Origin sequence stage. Gets created on begin play.
-	FSequenceStage OriginSequenceStage;
-
-	/// @brief How much to step rotation evaluations in order to keep rotating to 360 degrees and beyond
-	const double RotationStep = 180.0;
 
 #pragma region Location Tracking
 	/// @brief Original World Location of Mover
 	FVector OriginLocation;
 
 	/// @brief Original World Rotation of Mover
-	FRotator OriginRotation;
+	FQuat OriginRotation;
 
 	/// @brief Target Location for the current stage
 	FVector CurrentLocationTarget;
 
 	/// @brief Target Rotation for the current stage
-	FRotator CurrentRotationTarget;
+	FQuat CurrentRotationTarget;
 
 	/// @brief Current amount of rotation applied in the current stage
-	FVector RotationRemaining = FVector(0,0,0);
+	FVector RotationRemaining = FVector::Zero();
 
 	/// @brief Target Location for the current stage
 	FVector PreviousLocationTarget;
 
 	/// @brief Target Rotation for the current stage
-	FRotator PreviousRotationTarget;
+	FQuat PreviousRotationTarget;
 
 #pragma endregion
 #pragma endregion
@@ -145,10 +148,10 @@ private:
 	void Loop();
 
 	/// @brief Perform the movement actions
-	void Move(const float DeltaTime, const FVector CurrentLocation, const FLocationStage& CurrentStage, bool bReverse);
+	void Move(const float DeltaTime, const FVector &CurrentLocation, const FStageLocation &CurrentStage, bool bReverse);
 
 	/// @brief Perform the rotation action
-	void Rotate(const float DeltaTime, const FRotator CurrentRotation, const FRotationStage& CurrentStage, bool bReverse);
+	void Rotate(const float DeltaTime, const FRotator &CurrentRotation, const FStageRotation &CurrentStage, bool bReverse);
 
 	/// @brief Performs the movement and rotation based on the sequence
 	/// @param Reverse Whether or not to reverse the sequence
@@ -158,19 +161,28 @@ private:
 	/// @param CurrentLocation Current Location of the actor
 	/// @param CurrentRotation Current Rotation of the actor
 	/// @param bReverse Whether or not we are reversing which determines movement index update
-	void UpdateStages(const FVector CurrentLocation, const FRotator CurrentRotation, bool bReverse = false);
+	void UpdateStages(const FVector& CurrentLocation, const FRotator& CurrentRotation, bool bReverse = false);
 
 	/// @brief Updates the stage targets for Location and Rotation
 	/// @param CurrentLocation Current Location of the actor
 	/// @param CurrentRotation Current Rotation of the actor
 	/// @param Direction Direction to traverse stages represented as 1 or -1
-	void SetStageTargets(const FVector CurrentLocation, const FRotator CurrentRotation, const int32 Direction);
+	void SetStageTargets(const FVector& CurrentLocation, const FRotator& CurrentRotation, const int32 Direction);
 
 	/// @brief Tracks the force supplied to the rotation, measured in 180 degree intervals
 	/// @param force Yaw, Pitch, or Roll of the force to track
 	/// @return The remaining force target for the supplied yaw, pitch, or roll
-	float TrackRotationForce(const double TrackedForce, const int32 StepInterval);
+	float TrackRotationForce(const double TrackedForce, const int32 StepInterval, const double Tolerance);
 
 	/// @brief Tracks the current rotation by intervals of 180 degrees and updates the rotation target using FVector as a value container
-	FRotator TrackRotationStep(const FVector CurrentRotation, const int32 StepInterval);
+	/// @param CurrentRotation Current Rotation of the actor
+	/// @param StepInterval Interval to split up the rotation steps into (typically 180)
+	/// @param Tolerance Amount of tolerance to allow for considering a rotation pretty much at zero
+	/// @return Returns the next step as a rotation
+	FQuat TrackRotationStep(const FVector& CurrentRotation, const int32 StepInterval, const double Tolerance);
+
+	/// @brief Adjusts the remaining rotation to keep it clamped to positive and adjust to zero based on rotation tolerance
+	/// @param ReductionAmount How much the current rotation remaining will be adjusted by
+	/// @param Tolerance Amount of degree variance when considering a rotation is effectively zero
+	void AdjustRemainingRotation(const FVector &ReductionAmount);
 };
